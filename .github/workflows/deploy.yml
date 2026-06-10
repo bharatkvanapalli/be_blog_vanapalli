@@ -1,0 +1,123 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+
+env:
+  DEPLOY_ENV: prod
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          registry-url: "https://npm.pkg.github.com"
+          scope: "@bharatkvanapalli"
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GH_PACKAGES_TOKEN }}
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+  deploy:
+    name: Deploy (prod)
+    needs: test
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Load project config
+        id: config
+        run: |
+          PROJECT_NAME=$(jq -r '.project_name' config.json)
+          echo "project_name=$PROJECT_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          registry-url: "https://npm.pkg.github.com"
+          scope: "@bharatkvanapalli"
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GH_PACKAGES_TOKEN }}
+
+      - name: Build
+        run: npm run build
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Deploy Lambda functions
+        run: |
+          DEPLOY_ENV="${{ env.DEPLOY_ENV }}"
+          PROJECT="${{ steps.config.outputs.project_name }}"
+
+          # Add new functions here — one entry per line: "ssm-suffix:zip-name"
+          FUNCTIONS=(
+            "api-lambda:api"
+          )
+
+          for entry in "${FUNCTIONS[@]}"; do
+            SSM_SUFFIX="${entry%%:*}"
+            ZIP_NAME="${entry##*:}"
+
+            echo "--- Deploying ${ZIP_NAME} ---"
+            LAMBDA_NAME=$(aws ssm get-parameter --name "/${DEPLOY_ENV}/${PROJECT}/${SSM_SUFFIX}" --query "Parameter.Value" --output text)
+            echo "Function: $LAMBDA_NAME"
+
+            aws lambda update-function-code --function-name "$LAMBDA_NAME" --zip-file "fileb://dist/${ZIP_NAME}.zip" --no-cli-pager
+            aws lambda wait function-updated --function-name "$LAMBDA_NAME"
+
+            VERSION=$(aws lambda publish-version --function-name "$LAMBDA_NAME" --query "Version" --output text)
+            echo "Published version $VERSION"
+
+            aws lambda update-alias --function-name "$LAMBDA_NAME" --name "$DEPLOY_ENV" --function-version "$VERSION" --no-cli-pager 2>/dev/null || \
+              aws lambda create-alias --function-name "$LAMBDA_NAME" --name "$DEPLOY_ENV" --function-version "$VERSION" --no-cli-pager
+
+            echo ""
+          done
+
+      - name: Smoke test
+        run: |
+          API_URL=$(aws ssm get-parameter --name "/${{ env.DEPLOY_ENV }}/${{ steps.config.outputs.project_name }}/api-url" --query "Parameter.Value" --output text)
+          API_URL="${API_URL%/}"
+          echo "Testing ${API_URL}/health..."
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "${API_URL}/health")
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "Health check passed!"
+          else
+            echo "Health check failed with $HTTP_CODE"
+            exit 1
+          fi
