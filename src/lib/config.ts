@@ -20,6 +20,7 @@ const _region = process.env.AWS_REGION ?? "us-east-1";
 const _env = lazy(() => required("APP_ENV"));
 const _postsTable = lazy(() => required("POSTS_TABLE_NAME"));
 const _messagesTable = lazy(() => required("MESSAGES_TABLE_NAME"));
+const _sharedUsersTable = lazy(() => required("SHARED_USERS_TABLE_NAME"));
 const _userPoolId = lazy(() => required("USER_POOL_ID"));
 const _adminEmails = lazy<ReadonlySet<string>>(() => {
   const raw = process.env["ADMIN_EMAILS"] ?? "";
@@ -36,6 +37,7 @@ export const config = {
   get env() { return _env.value; },
   get postsTable() { return _postsTable.value; },
   get messagesTable() { return _messagesTable.value; },
+  get sharedUsersTable() { return _sharedUsersTable.value; },
   get userPoolId() { return _userPoolId.value; },
   get adminEmails() { return _adminEmails.value; },
   // GSI names — kept here so route code doesn't hard-code magic strings.
@@ -43,6 +45,9 @@ export const config = {
   postsSlugIndex: process.env["POSTS_SLUG_INDEX"] ?? "slug-index",
   postsStatusPublishedIndex: process.env["POSTS_STATUS_PUBLISHED_INDEX"] ?? "status-publishedAt-index",
   messagesCreatedIndex: process.env["MESSAGES_CREATED_INDEX"] ?? "createdAt-index",
+  // GSI on the shared identity table (owned by terraform_vanapalli_landing).
+  // Same name finances uses — keep aligned.
+  usersUsernameIndex: process.env["USERS_USERNAME_INDEX"] ?? "usernameLower-index",
 };
 
 export type AppConfig = typeof config;

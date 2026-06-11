@@ -4,6 +4,7 @@ import { logger as honoLogger } from "hono/logger";
 import { publicPostsRoutes } from "./routes/public-posts.js";
 import { publicLikesRoutes } from "./routes/public-likes.js";
 import { publicMessagesRoutes } from "./routes/public-messages.js";
+import { meRoutes } from "./routes/me.js";
 import { adminPostsRoutes } from "./routes/admin-posts.js";
 import { adminMessagesRoutes } from "./routes/admin-messages.js";
 import { logger } from "./lib/logger.js";
@@ -20,6 +21,7 @@ app.get("/health", (c) => c.json({ ok: true }));
 app.route("/posts", publicPostsRoutes);
 app.route("/posts", publicLikesRoutes);
 app.route("/messages", publicMessagesRoutes);
+app.route("/me", meRoutes);
 app.route("/admin/posts", adminPostsRoutes);
 app.route("/admin/messages", adminMessagesRoutes);
 

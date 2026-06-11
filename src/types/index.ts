@@ -1,5 +1,20 @@
 export type { AuthClaims } from "@bharatkvanapalli/auth-server";
 
+// One row per signed-up user in the shared identity DynamoDB table owned
+// by terraform_vanapalli_landing. Same shape every sibling vanapalli app
+// reads/writes — keep aligned with be_finanaces_vanapalli/src/types/index.ts.
+export interface UserProfile {
+  userId: string;
+  email: string;
+  profileName?: string;
+  username?: string;
+  usernameLower?: string;
+  userScopeKey?: "USER";
+  profileCompleted: boolean;
+  createdAt: string;
+  updatedAt?: string;
+}
+
 export type PostStatus = "draft" | "published";
 
 // One row per post in `vbl-prod-posts`. PK: postId. GSIs: slug-index (slug),

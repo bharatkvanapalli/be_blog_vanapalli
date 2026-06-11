@@ -1,4 +1,51 @@
 import { z } from "zod";
+import { isReservedUsername } from "./reservedUsernames.js";
+
+// ---------- User profile / username (shared identity) ----------
+//
+// Mirror of the rules used by every sibling vanapalli app — the same row in
+// the shared identity table is read/written by finances, blog, and games, so
+// these schemas must stay aligned (see be_finanaces_vanapalli/src/lib/
+// validation.ts and fe_blog_vanapalli/src/lib/usernameValidation.ts).
+export const USERNAME_MIN = 5;
+export const USERNAME_MAX = 20;
+const USERNAME_REGEX = /^[a-z0-9](?:[a-z0-9]|_(?!_))*[a-z0-9]$/;
+
+export const usernameSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .min(USERNAME_MIN, `username must be at least ${USERNAME_MIN} characters`)
+  .max(USERNAME_MAX, `username must be at most ${USERNAME_MAX} characters`)
+  .regex(
+    USERNAME_REGEX,
+    "username may only contain a-z, 0-9, and single underscores (not leading/trailing)",
+  )
+  .refine((v) => !isReservedUsername(v), {
+    message: "that username is reserved",
+  });
+
+export const profileNameSchema = z
+  .string()
+  .trim()
+  .min(1, "profileName is required")
+  .max(64, "profileName must be at most 64 characters");
+
+function nullishOpt<T extends z.ZodTypeAny>(schema: T) {
+  return schema.nullish().transform((v) => v ?? undefined);
+}
+
+export const updateMeSchema = z.object({
+  profileName: nullishOpt(profileNameSchema),
+  username: nullishOpt(usernameSchema),
+}).refine(
+  (v) => v.profileName !== undefined || v.username !== undefined,
+  { message: "at least one of profileName or username is required" },
+);
+
+export type UpdateMeInput = z.infer<typeof updateMeSchema>;
+
+// ---------- Posts ----------
 
 // Slugs are URL path segments — kebab-case lowercase, no slashes or spaces.
 // Length cap mirrors typical CMS limits and keeps GSI partitions small.
