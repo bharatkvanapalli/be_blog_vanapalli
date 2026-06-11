@@ -33,7 +33,11 @@ publicPostsRoutes.get("/", async (c) => {
   const next = out.LastEvaluatedKey
     ? Buffer.from(JSON.stringify(out.LastEvaluatedKey)).toString("base64")
     : null;
-  return c.json({ items: (out.Items ?? []) as Post[], nextToken: next });
+  const items = ((out.Items ?? []) as Post[]).map((p) => ({
+    ...p,
+    likeCount: p.likeCount ?? 0,
+  }));
+  return c.json({ items, nextToken: next });
 });
 
 // GET /posts/:slug — single published post by slug. Drafts 404 here even
@@ -51,5 +55,5 @@ publicPostsRoutes.get("/:slug", async (c) => {
   if (!item || item.status !== "published") {
     throw new HTTPException(404, { message: "not found" });
   }
-  return c.json(item);
+  return c.json({ ...item, likeCount: item.likeCount ?? 0 });
 });

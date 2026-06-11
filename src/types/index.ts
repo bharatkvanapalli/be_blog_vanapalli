@@ -18,4 +18,21 @@ export interface Post {
   authorSub: string;
   createdAt: string;
   updatedAt?: string;
+  likeCount?: number;
+}
+
+// One row per inbound contact submission in `vbl-${env}-messages`.
+// PK: messageId. GSI: createdAt-index (pk="m", createdAt) — constant hash
+// keeps every row in one partition so the admin inbox is a Query, not a
+// Scan. Fine while volume is tens-per-day; revisit if it ever spikes.
+export interface Message {
+  messageId: string;
+  pk: "m";
+  name: string;
+  email: string;
+  subject: string;
+  body: string;
+  createdAt: string;
+  read: boolean;
+  ipHash?: string;
 }
