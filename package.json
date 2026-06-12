@@ -12,7 +12,8 @@
     "build": "node esbuild.config.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "seed:content": "tsx scripts/seed-content.ts"
   },
   "dependencies": {
     "@aws-lambda-powertools/logger": "^2.10.0",
@@ -26,6 +27,8 @@
     "@types/aws-lambda": "^8.10.146",
     "@types/node": "^22.10.0",
     "esbuild": "^0.24.0",
+    "gray-matter": "^4.0.3",
+    "tsx": "^4.19.2",
     "typescript": "^5.6.3",
     "vitest": "^2.1.8"
   }
